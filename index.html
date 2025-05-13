@@ -1,0 +1,303 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saturn Visualization</title>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background-color: #000;
+            color: white;
+        }
+        canvas {
+            display: block;
+        }
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 300px;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+        #controls.hidden {
+            transform: translateX(-320px);
+        }
+        #toggle-controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 101;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        button {
+            background-color: #444;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        button:hover {
+            background-color: #555;
+        }
+        .slider-container {
+            display: flex;
+            align-items: center;
+        }
+        .slider-container span {
+            margin-left: 10px;
+            min-width: 30px;
+            text-align: right;
+        }
+    </style>
+
+<base target="_self">
+
+
+    </head><body><button id="toggle-controls">☰ Controls</button>
+    <div id="controls">
+        <div class="control-group">
+            <h3>Camera</h3>
+            <button id="reset-camera">Reset View</button>
+        </div>
+        <div class="control-group">
+            <h3>Planet</h3>
+            <label for="planet-size">Size</label>
+            <div class="slider-container">
+                <input type="range" id="planet-size" min="0.5" max="2" step="0.1" value="1">
+                <span id="planet-size-value">1.0</span>
+            </div>
+            <label for="planet-rotation">Rotation Speed</label>
+            <div class="slider-container">
+                <input type="range" id="planet-rotation" min="0" max="0.02" step="0.001" value="0.005">
+                <span id="planet-rotation-value">0.005</span>
+            </div>
+        </div>
+        <div class="control-group">
+            <h3>Rings</h3>
+            <label for="ring-opacity">Opacity</label>
+            <div class="slider-container">
+                <input type="range" id="ring-opacity" min="0.1" max="1" step="0.1" value="0.7">
+                <span id="ring-opacity-value">0.7</span>
+            </div>
+            <label for="ring-width">Width</label>
+            <div class="slider-container">
+                <input type="range" id="ring-width" min="0.5" max="3" step="0.1" value="1.5">
+                <span id="ring-width-value">1.5</span>
+            </div>
+        </div>
+        <div class="control-group">
+            <h3>Lighting</h3>
+            <label for="light-intensity">Intensity</label>
+            <div class="slider-container">
+                <input type="range" id="light-intensity" min="0.5" max="3" step="0.1" value="1.5">
+                <span id="light-intensity-value">1.5</span>
+            </div>
+        </div>
+        <div class="control-group">
+            <button id="randomize">Randomize</button>
+        </div>
+    </div>
+
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        // Camera position
+        camera.position.z = 5;
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        directionalLight.position.set(5, 3, 5);
+        scene.add(directionalLight);
+
+        // Planet
+        const planetGeometry = new THREE.SphereGeometry(1, 64, 64);
+        const planetMaterial = new THREE.MeshPhongMaterial({
+            color: 0xf5e7b2,
+            specular: 0x111111,
+            shininess: 30,
+            flatShading: false
+        });
+        const planet = new THREE.Mesh(planetGeometry, planetMaterial);
+        scene.add(planet);
+
+        // Rings
+        const ringGeometry = new THREE.RingGeometry(1.5, 3, 64);
+        const ringMaterial = new THREE.MeshPhongMaterial({
+            color: 0xc0c0c0,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.7
+        });
+        const rings = new THREE.Mesh(ringGeometry, ringMaterial);
+        rings.rotation.x = Math.PI / 2;
+        scene.add(rings);
+
+        // Stars background
+        const starGeometry = new THREE.BufferGeometry();
+        const starMaterial = new THREE.PointsMaterial({
+            color: 0xffffff,
+            size: 0.05,
+            transparent: true
+        });
+
+        const starVertices = [];
+        for (let i = 0; i < 1000; i++) {
+            const x = (Math.random() - 0.5) * 2000;
+            const y = (Math.random() - 0.5) * 2000;
+            const z = (Math.random() - 0.5) * 2000;
+            starVertices.push(x, y, z);
+        }
+
+        starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+        const stars = new THREE.Points(starGeometry, starMaterial);
+        scene.add(stars);
+
+        // Mouse interaction variables
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetRotationX = 0;
+        let targetRotationY = 0;
+        const rotationSpeed = 0.0005;
+
+        // Event listeners
+        window.addEventListener('resize', onWindowResize);
+        document.addEventListener('mousemove', onMouseMove);
+        document.getElementById('toggle-controls').addEventListener('click', toggleControls);
+        document.getElementById('reset-camera').addEventListener('click', resetCamera);
+        document.getElementById('randomize').addEventListener('click', randomizeSettings);
+
+        // Connect sliders
+        const sliders = {
+            'planet-size': { element: document.getElementById('planet-size'), display: document.getElementById('planet-size-value'), min: 0.5, max: 2 },
+            'planet-rotation': { element: document.getElementById('planet-rotation'), display: document.getElementById('planet-rotation-value'), min: 0, max: 0.02 },
+            'ring-opacity': { element: document.getElementById('ring-opacity'), display: document.getElementById('ring-opacity-value'), min: 0.1, max: 1 },
+            'ring-width': { element: document.getElementById('ring-width'), display: document.getElementById('ring-width-value'), min: 0.5, max: 3 },
+            'light-intensity': { element: document.getElementById('light-intensity'), display: document.getElementById('light-intensity-value'), min: 0.5, max: 3 }
+        };
+
+        Object.keys(sliders).forEach(key => {
+            sliders[key].element.addEventListener('input', updateSliderValue);
+        });
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Smooth rotation towards mouse position
+            planet.rotation.y += parseFloat(sliders['planet-rotation'].element.value);
+            rings.rotation.y += parseFloat(sliders['planet-rotation'].element.value) * 0.7;
+
+            // Apply camera rotation based on mouse position
+            targetRotationX = mouseY * rotationSpeed;
+            targetRotationY = mouseX * rotationSpeed;
+
+            camera.position.x += (targetRotationY * 20 - camera.position.x) * 0.05;
+            camera.position.y += (-targetRotationX * 20 - camera.position.y) * 0.05;
+            camera.lookAt(scene.position);
+
+            renderer.render(scene, camera);
+        }
+
+        // Helper functions
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function onMouseMove(event) {
+            mouseX = (event.clientX - window.innerWidth / 2);
+            mouseY = (event.clientY - window.innerHeight / 2);
+        }
+
+        function toggleControls() {
+            const controls = document.getElementById('controls');
+            controls.classList.toggle('hidden');
+        }
+
+        function resetCamera() {
+            camera.position.set(0, 0, 5);
+            camera.lookAt(0, 0, 0);
+        }
+
+        function updateSliderValue(e) {
+            const slider = sliders[e.target.id];
+            slider.display.textContent = e.target.value;
+            
+            switch(e.target.id) {
+                case 'planet-size':
+                    planet.scale.set(e.target.value, e.target.value, e.target.value);
+                    break;
+                case 'ring-opacity':
+                    ringMaterial.opacity = parseFloat(e.target.value);
+                    break;
+                case 'ring-width':
+                    rings.scale.set(e.target.value, e.target.value, e.target.value);
+                    break;
+                case 'light-intensity':
+                    directionalLight.intensity = parseFloat(e.target.value);
+                    break;
+            }
+        }
+
+        function randomizeSettings() {
+            Object.keys(sliders).forEach(key => {
+                const slider = sliders[key];
+                const randomValue = (Math.random() * (slider.max - slider.min) + slider.min).toFixed(3);
+                slider.element.value = randomValue;
+                slider.display.textContent = randomValue;
+                
+                // Trigger the change
+                const event = new Event('input');
+                slider.element.dispatchEvent(event);
+            });
+
+            // Randomize planet color
+            planetMaterial.color.setHSL(Math.random(), 0.5, 0.7);
+            
+            // Randomize ring color
+            ringMaterial.color.setHSL(Math.random(), 0.3, 0.8);
+        }
+
+        // Start animation
+        animate();
+    </script>
+
+              
+          
+                
+          
+              
+</body></html>
